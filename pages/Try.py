@@ -11,14 +11,19 @@ from langchain.callbacks import get_openai_callback
 
 def main():
     load_dotenv()
-    st.set_page_config(page_title="Ask your PDF")
-    st.header("Ask your PDF 💬")
-    
+    st.set_page_config(page_title="Speak to your doc", page_icon="👋")
+    st.header("Speak to your Doc 🔥")
+    st.markdown("🙊 This website will not accept documents on crossing the threshold limit of $10")
+    current_limit = 4
+    dollar_limit = 10
     # upload file
     pdf = st.file_uploader("Upload your PDF", type="pdf")
     
+    if pdf is not None and current_limit > dollar_limit:
+       st.write("Oops! Sorry, threshold limit exceeded!")
+
     # extract the text
-    if pdf is not None:
+    elif pdf is not None:
       pdf_reader = PdfReader(pdf)
       text = ""
       for page in pdf_reader.pages:
@@ -28,7 +33,7 @@ def main():
       text_splitter = CharacterTextSplitter(
         separator="\n",
         chunk_size=1000,
-        chunk_overlap=200,
+        chunk_overlap=250,
         length_function=len
       )
       chunks = text_splitter.split_text(text)
@@ -38,17 +43,20 @@ def main():
       knowledge_base = FAISS.from_texts(chunks, embeddings)
       
       # show user input
-      user_question = st.text_input("Ask a question about your PDF:")
-      if user_question:
+      user_question = st.text_input("What are you looking for in the document:")
+      if user_question and current_limit < dollar_limit:
         docs = knowledge_base.similarity_search(user_question)
         
         llm = OpenAI()
         chain = load_qa_chain(llm, chain_type="stuff")
         with get_openai_callback() as cb:
           response = chain.run(input_documents=docs, question=user_question)
-          print(cb)
-           
+          current_limit = current_limit + cb.total_cost
+          print(cb) 
         st.write(response)
+        st.write("Cost incurred: $ {}".format(str(cb.total_cost)))
+        st.write("Total Cost: $ {}".format(str(current_limit)))
+      
     
 
 if __name__ == '__main__':
